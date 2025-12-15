@@ -173,5 +173,10 @@ export class AwsUrlShortenerStack extends Stack {
       value: s3bucket.bucketName,
       description: "S3 bucket name for frontend",
     });
+
+    new cdk.CfnOutput(this, "CloudFrontDistributionUrl", {
+      value: cfDist.domainName,
+      description: "CloudFront URL (visit me to see the app)",
+    });
   }
 }
