@@ -26,6 +26,8 @@ This project is a simple URL shortener that deploys a stack using the AWS CDK.
 Once it is deployed, you can view the app via the `CloudFrontDistributionUrl`.
 You should see it in the outputs when the deployment finishes. 
 
+https://github.com/user-attachments/assets/50aab375-2039-4f75-95f8-52432faf581c
+
 ### Some notes
 
 Since this app is serverless, keeping it running will not cost too much under
