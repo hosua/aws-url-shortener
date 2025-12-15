@@ -9,7 +9,6 @@
     "deploy": "npx cdk deploy",
     "deploy:frontend": "bash website-src/deploy-frontend.sh",
     "watch": "tsc -w",
-    "test": "jest",
     "cdk": "cdk"
   },
   "devDependencies": {
