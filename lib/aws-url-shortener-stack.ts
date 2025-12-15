@@ -15,7 +15,7 @@ import * as s3Deployment from "aws-cdk-lib/aws-s3-deployment";
 
 import * as path from "path";
 import { getOrCreateBucketUuid, WEBSITE_BUILD_PATH } from "./env";
-import { writeDeployScript, writeBucketNameToEnv } from "./configWriter";
+import { writeBucketNameToEnv, writeStackNameToEnv } from "./configWriter";
 
 const bucketUuid = getOrCreateBucketUuid();
 
@@ -25,7 +25,13 @@ export class AwsUrlShortenerStack extends Stack {
 
     const s3bucket = new s3.Bucket(this, `urlShortenerFrontend`, {
       bucketName: `url-shortener-frontend-${bucketUuid}`,
-      publicReadAccess: false,
+      publicReadAccess: true,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        blockPublicPolicy: false,
+        ignorePublicAcls: false,
+        restrictPublicBuckets: false,
+      }),
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       websiteIndexDocument: "index.html",
       websiteErrorDocument: "index.html",
@@ -62,16 +68,6 @@ export class AwsUrlShortenerStack extends Stack {
       ],
       minimumProtocolVersion: cf.SecurityPolicyProtocol.TLS_V1_2_2019,
     });
-
-    s3bucket.addToResourcePolicy(
-      new iam.PolicyStatement({
-        sid: "AllowCloudFrontServicePrincipal",
-        effect: iam.Effect.ALLOW,
-        principals: [new iam.AnyPrincipal()],
-        actions: ["s3:GetObject"],
-        resources: [`${s3bucket.bucketArn}/*`],
-      }),
-    );
 
     const urlTable = new dynamodb.Table(this, "urlShortenerTable", {
       partitionKey: { name: "short_url", type: dynamodb.AttributeType.STRING },
@@ -166,12 +162,7 @@ export class AwsUrlShortenerStack extends Stack {
 
     const bucketNameValue = `url-shortener-frontend-${bucketUuid}`;
     writeBucketNameToEnv(bucketNameValue);
-
-    const websiteSrcPath = path.resolve(__dirname, "..", "website-src");
-    writeDeployScript({
-      stackName: this.stackName,
-      websiteSrcPath,
-    });
+    writeStackNameToEnv(this.stackName);
 
     new cdk.CfnOutput(this, "ApiGatewayUrl", {
       value: apiUrl,
