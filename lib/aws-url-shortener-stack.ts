@@ -1,4 +1,4 @@
-import { Construct } from "constructs";
+import { Construct, IConstruct } from "constructs";
 import { Duration, Stack, StackProps } from "aws-cdk-lib/core";
 import * as cdk from "aws-cdk-lib";
 
@@ -7,6 +7,7 @@ import * as api_gw_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations"
 import * as cf from "aws-cdk-lib/aws-cloudfront";
 import * as cr from "aws-cdk-lib/custom-resources";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as logs from "aws-cdk-lib/aws-logs";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
@@ -161,6 +162,16 @@ export class AwsUrlShortenerStack extends Stack {
     });
 
     configResource.node.addDependency(s3bucketDeployment);
+
+    cdk.Aspects.of(this).add(
+      new (class implements cdk.IAspect {
+        visit(node: IConstruct) {
+          if (node instanceof logs.LogGroup) {
+            node.applyRemovalPolicy(cdk.RemovalPolicy.DESTROY);
+          }
+        }
+      })(),
+    );
 
     const bucketNameValue = `url-shortener-frontend-${bucketUuid}`;
     writeBucketNameToEnv(bucketNameValue);
