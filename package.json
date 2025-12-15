@@ -5,8 +5,9 @@
     "aws-url-shortener": "bin/aws-url-shortener.js"
   },
   "scripts": {
-    "build:frontend": "(cd website-src && npm ci && npm run build)",
+    "build:frontend": "(cd website-src && npm run build)",
     "deploy": "npx cdk deploy",
+    "deploy:frontend": "bash website-src/deploy-frontend.sh",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"

@@ -1,8 +1,11 @@
-const metaEnv = import.meta.env;
+import { getConfig } from "./config";
 
-export const API_BASE_URL = metaEnv.VITE_API_BASE_URL || "";
-export const REGION = metaEnv.VITE_REGION || "";
+export const API_BASE_URL = (): string => getConfig().apiBaseUrl;
+export const REGION = (): string => getConfig().region;
 
 export type ENV = "PROD" | "DEV";
-export const getEnv = (): ENV => (metaEnv.PROD ? "PROD" : "DEV");
+export const getEnv = (): ENV => {
+  const metaEnv = import.meta.env;
+  return metaEnv.PROD ? "PROD" : "DEV";
+};
 export const isProd = (): boolean => getEnv() === "PROD";

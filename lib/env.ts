@@ -29,4 +29,35 @@ const getOrCreateBucketUuid = (): string => {
   return bucketUuid;
 };
 
-export { getOrCreateBucketUuid, WEBSITE_BUILD_PATH };
+const getEnvValue = (key: string): string | null => {
+  if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, "utf-8");
+    const match = envContent.match(new RegExp(`^${key}=(.+)$`, "m"));
+    return match?.[1]?.trim() || null;
+  }
+  return null;
+};
+
+const setEnvValue = (key: string, value: string): void => {
+  const existingValue = getEnvValue(key);
+  if (existingValue !== null) {
+    return;
+  }
+
+  let envContent = "";
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, "utf-8");
+    if (existingValue !== null) {
+      const regex = new RegExp(`^${key}=.*$`, "m");
+      envContent = envContent.replace(regex, `${key}=${value}`);
+    } else {
+      envContent += `\n${key}=${value}\n`;
+    }
+  } else {
+    envContent = `${key}=${value}\n`;
+  }
+
+  fs.writeFileSync(envPath, envContent, { flag: "w" });
+};
+
+export { getOrCreateBucketUuid, WEBSITE_BUILD_PATH, setEnvValue };

@@ -9,3 +9,4 @@ cdk.out
 
 dist/
 .env
+website-src/deploy-frontend.sh

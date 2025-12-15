@@ -18,7 +18,7 @@ interface GetUrlResponse {
 }
 
 export const shortenUrl = async ({ originalUrl, ttl }: ShortenUrlRequest) => {
-  const url = `${API_BASE_URL}/url`;
+  const url = `${API_BASE_URL()}/url`;
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -37,7 +37,7 @@ export const shortenUrl = async ({ originalUrl, ttl }: ShortenUrlRequest) => {
 
 export const getOriginalUrl = async ({ shortUrl }: { shortUrl: string }) => {
   const response = await fetch(
-    `${API_BASE_URL}/url?short_url=${encodeURIComponent(shortUrl)}`,
+    `${API_BASE_URL()}/url?short_url=${encodeURIComponent(shortUrl)}`,
     {
       method: "GET",
     },

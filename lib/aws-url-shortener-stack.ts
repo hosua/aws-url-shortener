@@ -1,17 +1,21 @@
+import { Construct } from "constructs";
 import { Duration, Stack, StackProps } from "aws-cdk-lib/core";
 import * as cdk from "aws-cdk-lib";
+
 import * as api_gw from "aws-cdk-lib/aws-apigatewayv2";
 import * as api_gw_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+import * as cf from "aws-cdk-lib/aws-cloudfront";
+import * as cr from "aws-cdk-lib/custom-resources";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3Deployment from "aws-cdk-lib/aws-s3-deployment";
-import { Construct } from "constructs";
+
 import * as path from "path";
 import { getOrCreateBucketUuid, WEBSITE_BUILD_PATH } from "./env";
+import { writeDeployScript, writeBucketNameToEnv } from "./configWriter";
 
 const bucketUuid = getOrCreateBucketUuid();
 
@@ -40,13 +44,13 @@ export class AwsUrlShortenerStack extends Stack {
       },
     );
 
-    const cfDist = new cloudfront.Distribution(this, `cfDist`, {
+    const cfDist = new cf.Distribution(this, `cfDist`, {
       defaultRootObject: "index.html",
       defaultBehavior: {
-        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        allowedMethods: cf.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
         compress: true,
         origin: new origins.S3StaticWebsiteOrigin(s3bucket),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        viewerProtocolPolicy: cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       errorResponses: [
         {
@@ -56,7 +60,7 @@ export class AwsUrlShortenerStack extends Stack {
           ttl: cdk.Duration.minutes(30),
         },
       ],
-      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2019,
+      minimumProtocolVersion: cf.SecurityPolicyProtocol.TLS_V1_2_2019,
     });
 
     s3bucket.addToResourcePolicy(
@@ -129,6 +133,54 @@ export class AwsUrlShortenerStack extends Stack {
         "shortenUrlIntegration",
         lambdaUrlShortener,
       ),
+    });
+
+    const apiUrl = httpApi.url || "";
+    const region = this.region;
+
+    const configLambda = new lambda.Function(this, "configWriterLambda", {
+      runtime: lambda.Runtime.NODEJS_24_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(
+        path.resolve(__dirname, "lambdas", "configWriter"),
+      ),
+      timeout: Duration.seconds(30),
+    });
+
+    s3bucket.grantWrite(configLambda);
+
+    const configProvider = new cr.Provider(this, "configProvider", {
+      onEventHandler: configLambda,
+    });
+
+    const configResource = new cdk.CustomResource(this, "configResource", {
+      serviceToken: configProvider.serviceToken,
+      properties: {
+        ApiUrl: apiUrl,
+        Region: region,
+        BucketName: s3bucket.bucketName,
+      },
+    });
+
+    configResource.node.addDependency(s3bucketDeployment);
+
+    const bucketNameValue = `url-shortener-frontend-${bucketUuid}`;
+    writeBucketNameToEnv(bucketNameValue);
+
+    const websiteSrcPath = path.resolve(__dirname, "..", "website-src");
+    writeDeployScript({
+      stackName: this.stackName,
+      websiteSrcPath,
+    });
+
+    new cdk.CfnOutput(this, "ApiGatewayUrl", {
+      value: apiUrl,
+      description: "API Gateway URL",
+    });
+
+    new cdk.CfnOutput(this, "FrontendBucketName", {
+      value: s3bucket.bucketName,
+      description: "S3 bucket name for frontend",
     });
   }
 }
