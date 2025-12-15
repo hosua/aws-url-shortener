@@ -1,6 +1,6 @@
 # AWS URL Shortener
 
-This project is a simple URL shortener that deploys a stack using the AWS CDK.
+This project is a simple URL shortener that is deployed as a CloudFormation Stack using the AWS CDK.
 It should serve as a useful example to get started with CDK.
 
 ### Getting Started
