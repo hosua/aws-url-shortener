@@ -42,9 +42,6 @@ cdk deploy`) will not detect changes in the frontend. To update the frontend,
 you'll need run `npm run build:frontend`, then `npm run deploy:frontend` script
 which will reupload the `dist` files to s3.
 
-In order to fully delete the stack, you will need to empty the frontend s3
-bucket first, otherwise it will fail to delete.
-
 ### Architecture
 
 ![url-shortener](images/url-shortener-diagram.webp)

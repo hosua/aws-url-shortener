@@ -32,6 +32,7 @@ export class AwsUrlShortenerStack extends Stack {
         ignorePublicAcls: false,
         restrictPublicBuckets: false,
       }),
+      autoDeleteObjects: true,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       websiteIndexDocument: "index.html",
       websiteErrorDocument: "index.html",
@@ -73,6 +74,7 @@ export class AwsUrlShortenerStack extends Stack {
       partitionKey: { name: "short_url", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
       timeToLiveAttribute: "expire_at",
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
 
     const lambdaUrlShortener = new lambda.Function(this, "shortenUrlLambda", {
