@@ -1,7 +1,10 @@
 import { Duration, Stack, StackProps } from "aws-cdk-lib/core";
+import * as cdk from "aws-cdk-lib";
 import * as api_gw from "aws-cdk-lib/aws-apigatewayv2";
+import * as api_gw_integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -18,7 +21,10 @@ export class AwsUrlShortenerStack extends Stack {
 
     const s3bucket = new s3.Bucket(this, `urlShortenerFrontend`, {
       bucketName: `url-shortener-frontend-${bucketUuid}`,
-      accessControl: s3.BucketAccessControl.PRIVATE,
+      publicReadAccess: false,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      websiteIndexDocument: "index.html",
+      websiteErrorDocument: "index.html",
     });
 
     const s3bucketDeployment = new s3Deployment.BucketDeployment(
@@ -37,8 +43,36 @@ export class AwsUrlShortenerStack extends Stack {
     const cfDist = new cloudfront.Distribution(this, `cfDist`, {
       defaultRootObject: "index.html",
       defaultBehavior: {
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+        compress: true,
         origin: new origins.S3StaticWebsiteOrigin(s3bucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
+      errorResponses: [
+        {
+          httpStatus: 403,
+          responseHttpStatus: 403,
+          responsePagePath: "/index.html",
+          ttl: cdk.Duration.minutes(30),
+        },
+      ],
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2019,
+    });
+
+    s3bucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "AllowCloudFrontServicePrincipal",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.AnyPrincipal()],
+        actions: ["s3:GetObject"],
+        resources: [`${s3bucket.bucketArn}/*`],
+      }),
+    );
+
+    const urlTable = new dynamodb.Table(this, "urlShortenerTable", {
+      partitionKey: { name: "short_url", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      timeToLiveAttribute: "expire_at",
     });
 
     const lambdaUrlShortener = new lambda.Function(this, "shortenUrlLambda", {
@@ -47,7 +81,13 @@ export class AwsUrlShortenerStack extends Stack {
       code: lambda.Code.fromAsset(
         path.resolve(__dirname, "lambdas", "urlShortener"),
       ),
+      environment: {
+        region: this.region,
+        table_name: urlTable.tableName,
+      },
     });
+
+    urlTable.grantWriteData(lambdaUrlShortener);
 
     const lambdaGetUrl = new lambda.Function(this, "getUrlLambda", {
       runtime: lambda.Runtime.NODEJS_24_X,
@@ -55,12 +95,40 @@ export class AwsUrlShortenerStack extends Stack {
       code: lambda.Code.fromAsset(
         path.resolve(__dirname, "lambdas", "urlShortener"),
       ),
+      environment: {
+        region: this.region,
+        table_name: urlTable.tableName,
+      },
     });
 
-    const apiGw = new api_gw.HttpApi(this, "apiGateway", {
+    urlTable.grantReadData(lambdaGetUrl);
+
+    const httpApi = new api_gw.HttpApi(this, "apiGateway", {
       apiName: `urlShortenerApiGateway`,
       description: "The HTTP REST API for URL Shortener",
-      // TODO: This is going to need a CORS configuration
+      corsPreflight: {
+        allowOrigins: ["*"],
+        allowMethods: [api_gw.CorsHttpMethod.GET, api_gw.CorsHttpMethod.POST],
+        allowHeaders: ["Content-Type"],
+      },
+    });
+
+    httpApi.addRoutes({
+      path: "/url",
+      methods: [api_gw.HttpMethod.GET],
+      integration: new api_gw_integrations.HttpLambdaIntegration(
+        "getUrlIntegration",
+        lambdaGetUrl,
+      ),
+    });
+
+    httpApi.addRoutes({
+      path: "/url",
+      methods: [api_gw.HttpMethod.POST],
+      integration: new api_gw_integrations.HttpLambdaIntegration(
+        "shortenUrlIntegration",
+        lambdaUrlShortener,
+      ),
     });
   }
 }

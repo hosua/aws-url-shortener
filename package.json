@@ -6,6 +6,7 @@
   },
   "scripts": {
     "build:frontend": "(cd website-src && npm ci && npm run build)",
+    "deploy": "npx cdk deploy",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"
